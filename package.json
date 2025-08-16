@@ -1,0 +1,13 @@
+{
+  "name": "alex-zhang-portfolio",
+  "version": "1.0.0",
+  "description": "Alex Zhang personal website with SpaceX-inspired design",
+  "main": "index.html",
+  "scripts": {
+    "start": "python3 server.py",
+    "dev": "python3 server.py"
+  },
+  "keywords": ["portfolio", "personal-website", "spacex", "alex-zhang"],
+  "author": "Alex Zhang",
+  "license": "MIT"
+}
