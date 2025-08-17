@@ -5,6 +5,13 @@ class AlexAI {
         // OpenAI API key should be set via environment variable or config
         // For development, you can set this in a separate config file that's not committed to git
         this.openAIKey = window.OPENAI_API_KEY || null;
+        
+        console.log('AI Chat initializing:', {
+            hasOpenAIKey: !!this.openAIKey,
+            openAIKeyLength: this.openAIKey?.length,
+            windowOpenAIKey: !!window.OPENAI_API_KEY
+        });
+        
         this.alexPersonality = {
             experiences: {
                 countries: ['United States', 'China', 'Germany', 'Hong Kong', 'Spain', 'Chile', 'United Kingdom'],
@@ -20,6 +27,32 @@ class AlexAI {
     init() {
         this.createChatInterface();
         this.setupEventListeners();
+        
+        // Add debug functions
+        window.enableAIChat = () => {
+            console.log('Manually enabling AI chat...');
+            const chatInput = document.getElementById('chat-input');
+            const sendBtn = document.getElementById('send-message');
+            const authRequired = document.getElementById('auth-required');
+            if (chatInput && sendBtn) {
+                chatInput.disabled = false;
+                sendBtn.disabled = false;
+                if (authRequired) authRequired.style.display = 'none';
+                chatInput.placeholder = "Ask me anything about Alex's experiences... (Debug mode)";
+                console.log('AI chat enabled in debug mode');
+            }
+        };
+        
+        window.debugAIChat = () => {
+            console.log('AI Chat Debug Info:', {
+                hasOpenAIKey: !!this.openAIKey,
+                openAIKeyLength: this.openAIKey?.length,
+                hasAuthManager: !!window.authManager,
+                currentUser: window.authManager?.getCurrentUser()?.email,
+                chatInputDisabled: document.getElementById('chat-input')?.disabled,
+                sendBtnDisabled: document.getElementById('send-message')?.disabled
+            });
+        };
     }
 
     createChatInterface() {
@@ -92,11 +125,48 @@ class AlexAI {
             }
         });
 
-        // Listen for auth state changes
-        if (window.authManager) {
-            this.checkAuthState();
-            // Set up periodic auth state check
-            setInterval(() => this.checkAuthState(), 1000);
+        // Listen for auth state changes with retry logic
+        this.setupAuthStateMonitoring();
+    }
+
+    setupAuthStateMonitoring() {
+        // Check for auth manager with retry
+        const checkForAuthManager = () => {
+            if (window.authManager) {
+                console.log('Auth manager found, setting up monitoring');
+                this.checkAuthState();
+                // Set up periodic auth state check
+                setInterval(() => this.checkAuthState(), 1000);
+                return true;
+            }
+            return false;
+        };
+
+        // Try immediately
+        if (!checkForAuthManager()) {
+            // Retry every 100ms for up to 5 seconds
+            let retries = 0;
+            const maxRetries = 50;
+            const retryInterval = setInterval(() => {
+                retries++;
+                if (checkForAuthManager() || retries >= maxRetries) {
+                    clearInterval(retryInterval);
+                    if (retries >= maxRetries) {
+                        console.warn('Auth manager not found after retries');
+                        // Enable input anyway if API key is available (guest mode)
+                        if (this.openAIKey) {
+                            console.log('Enabling chat in guest mode with API key');
+                            const chatInput = document.getElementById('chat-input');
+                            const sendBtn = document.getElementById('send-message');
+                            const authRequired = document.getElementById('auth-required');
+                            chatInput.disabled = false;
+                            sendBtn.disabled = false;
+                            authRequired.style.display = 'none';
+                            chatInput.placeholder = "Ask me anything about Alex's experiences... (Guest mode)";
+                        }
+                    }
+                }
+            }, 100);
         }
     }
 
@@ -106,12 +176,21 @@ class AlexAI {
         const sendBtn = document.getElementById('send-message');
         const authRequired = document.getElementById('auth-required');
 
+        console.log('Checking auth state:', {
+            hasAuthManager: !!window.authManager,
+            hasUser: !!user,
+            hasOpenAIKey: !!this.openAIKey,
+            userEmail: user?.email
+        });
+
         if (user) {
+            console.log('User is authenticated, enabling chat');
             chatInput.disabled = false;
             sendBtn.disabled = false;
             authRequired.style.display = 'none';
             chatInput.placeholder = "Ask me anything about Alex's experiences...";
         } else {
+            console.log('User not authenticated, disabling chat');
             chatInput.disabled = true;
             sendBtn.disabled = true;
             authRequired.style.display = 'block';
@@ -161,10 +240,16 @@ class AlexAI {
         
         if (!message) return;
         
-        // Check auth
-        if (!window.authManager?.getCurrentUser()) {
-            this.handleAuthRequired();
-            return;
+        // Check auth - but allow fallback if API key is available
+        const currentUser = window.authManager?.getCurrentUser();
+        if (!currentUser) {
+            console.log('No authenticated user, checking if API key available for guest access');
+            if (!this.openAIKey) {
+                this.handleAuthRequired();
+                return;
+            }
+            // Allow guest access if API key is available
+            console.log('Allowing guest access with API key');
         }
 
         // Add user message
