@@ -248,6 +248,61 @@
         Your browser does not support the audio element.
     </audio>
 
+    <!-- Configuration (for local development) -->
+    <script src="config.js"></script>
+    
+    <!-- Firebase SDK -->
+    <script type="module">
+        // Import Firebase modules
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js';
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js';
+        import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, updateDoc, doc, increment, arrayUnion, arrayRemove, serverTimestamp, getDocs } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js';
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDERkYDXg8WW6ue2bI77apsa5VDcPmc950",
+            authDomain: "alex2-b07a9.firebaseapp.com",
+            projectId: "alex2-b07a9",
+            storageBucket: "alex2-b07a9.firebasestorage.app",
+            messagingSenderId: "286067167646",
+            appId: "1:286067167646:web:e5010d2c006e883b12c68f"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // Make Firebase services available globally
+        window.firebaseAuth = auth;
+        window.firebaseDb = db;
+        window.firebaseServices = {
+            createUserWithEmailAndPassword,
+            signInWithEmailAndPassword,
+            signOut,
+            onAuthStateChanged,
+            GoogleAuthProvider,
+            signInWithPopup,
+            collection,
+            addDoc,
+            query,
+            orderBy,
+            onSnapshot,
+            updateDoc,
+            doc,
+            increment,
+            arrayUnion,
+            arrayRemove,
+            serverTimestamp,
+            getDocs
+        };
+
+        // Load the main application scripts after Firebase is initialized
+        import('./auth-integrated.js');
+        import('./ai-chat-integrated.js');
+        import('./comments-integrated.js');
+    </script>
+
     <script src="script.js"></script>
 </body>
 </html>
