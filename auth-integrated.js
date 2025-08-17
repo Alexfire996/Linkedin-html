@@ -36,6 +36,7 @@ class AuthManager {
                                 <span class="google-icon">G</span>
                                 Continue with Google
                             </button>
+                            <p class="auth-note">Note: Google sign-in requires proper domain configuration</p>
                         </div>
                         
                         <div id="signup-form" class="auth-form">
@@ -51,6 +52,7 @@ class AuthManager {
                                 <span class="google-icon">G</span>
                                 Continue with Google
                             </button>
+                            <p class="auth-note">Note: Google sign-in requires proper domain configuration</p>
                         </div>
                         
                         <div id="auth-error" class="auth-error"></div>
@@ -95,6 +97,21 @@ class AuthManager {
             this.currentUser = user;
             this.updateAuthUI();
         });
+
+        // Check for redirect result on page load
+        this.services.getRedirectResult(this.auth)
+            .then((result) => {
+                if (result?.user) {
+                    console.log('Google redirect sign-in successful:', result.user);
+                    this.showSuccess('Successfully signed in with Google!');
+                }
+            })
+            .catch((error) => {
+                console.error('Google redirect error:', error);
+                if (error.code !== 'auth/no-redirect-result') {
+                    this.showError(this.getErrorMessage(error.code));
+                }
+            });
     }
 
     setupAuthUI() {
@@ -213,12 +230,53 @@ class AuthManager {
 
     async handleGoogleAuth() {
         const provider = new this.services.GoogleAuthProvider();
+        
+        // Add additional scopes for better user info
+        provider.addScope('profile');
+        provider.addScope('email');
+        
+        // Set custom parameters for better UX
+        provider.setCustomParameters({
+            prompt: 'select_account'
+        });
+        
         try {
-            await this.services.signInWithPopup(this.auth, provider);
+            console.log('Attempting Google sign-in...');
+            const result = await this.services.signInWithPopup(this.auth, provider);
+            console.log('Google sign-in successful:', result.user);
             this.closeModal();
             this.showSuccess('Successfully signed in with Google!');
         } catch (error) {
-            this.showError(this.getErrorMessage(error.code));
+            console.error('Google sign-in error:', error);
+            
+            // Handle specific Google auth errors
+            if (error.code === 'auth/popup-blocked') {
+                this.showError('Popup was blocked. Trying redirect method...');
+                // Try redirect method as fallback
+                this.handleGoogleRedirect();
+            } else if (error.code === 'auth/popup-closed-by-user') {
+                this.showError('Sign-in was cancelled. Please try again.');
+            } else if (error.code === 'auth/unauthorized-domain') {
+                this.showError('This domain is not authorized for Google sign-in. Please use email/password instead.');
+            } else if (error.code === 'auth/operation-not-allowed') {
+                this.showError('Google sign-in is not configured. Please use email/password instead.');
+            } else {
+                this.showError(this.getErrorMessage(error.code));
+            }
+        }
+    }
+
+    async handleGoogleRedirect() {
+        const provider = new this.services.GoogleAuthProvider();
+        provider.addScope('profile');
+        provider.addScope('email');
+        
+        try {
+            // Use redirect instead of popup
+            await this.services.signInWithRedirect(this.auth, provider);
+        } catch (error) {
+            console.error('Google redirect error:', error);
+            this.showError('Google sign-in failed. Please try email/password instead.');
         }
     }
 
@@ -277,7 +335,13 @@ class AuthManager {
             'auth/invalid-email': 'Invalid email address',
             'auth/too-many-requests': 'Too many failed attempts. Try again later',
             'auth/popup-closed-by-user': 'Sign-in popup was closed',
-            'auth/cancelled-popup-request': 'Sign-in was cancelled'
+            'auth/cancelled-popup-request': 'Sign-in was cancelled',
+            'auth/popup-blocked': 'Popup was blocked by browser',
+            'auth/unauthorized-domain': 'Domain not authorized for Google sign-in',
+            'auth/operation-not-allowed': 'Google sign-in is not enabled',
+            'auth/account-exists-with-different-credential': 'Account exists with different sign-in method',
+            'auth/credential-already-in-use': 'Credential is already associated with a different account',
+            'auth/network-request-failed': 'Network error. Please check your connection'
         };
         
         return errorMessages[errorCode] || 'An error occurred. Please try again.';
